@@ -37,15 +37,15 @@ public class DepartmentController {
     }
 
     @PostMapping
-    @PreAuthorize("hasRole('ADMIN')")
-    @Operation(summary = "Create department")
+    @PreAuthorize("hasAnyRole('ADMIN', 'HR')")
+    @Operation(summary = "Create department (Admin/HR)")
     public ResponseEntity<DepartmentDto> create(@Valid @RequestBody CreateDepartmentRequest req) {
         return ResponseEntity.status(HttpStatus.CREATED).body(departmentService.create(req));
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
-    @Operation(summary = "Update department")
+    @PreAuthorize("hasAnyRole('ADMIN', 'HR')")
+    @Operation(summary = "Update department (Admin/HR)")
     public ResponseEntity<DepartmentDto> update(
             @PathVariable Long id,
             @Valid @RequestBody CreateDepartmentRequest req
@@ -54,8 +54,8 @@ public class DepartmentController {
     }
 
     @PatchMapping("/{id}/toggle")
-    @PreAuthorize("hasRole('ADMIN')")
-    @Operation(summary = "Toggle department active status")
+    @PreAuthorize("hasAnyRole('ADMIN', 'HR')")
+    @Operation(summary = "Toggle department active status (Admin/HR)")
     public ResponseEntity<DepartmentDto> toggleActive(@PathVariable Long id) {
         return ResponseEntity.ok(departmentService.toggleActive(id));
     }

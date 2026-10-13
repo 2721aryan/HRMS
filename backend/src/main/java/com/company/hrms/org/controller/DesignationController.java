@@ -37,15 +37,15 @@ public class DesignationController {
     }
 
     @PostMapping
-    @PreAuthorize("hasRole('ADMIN')")
-    @Operation(summary = "Create designation")
+    @PreAuthorize("hasAnyRole('ADMIN', 'HR')")
+    @Operation(summary = "Create designation (Admin/HR)")
     public ResponseEntity<DesignationDto> create(@Valid @RequestBody CreateDesignationRequest req) {
         return ResponseEntity.status(HttpStatus.CREATED).body(designationService.create(req));
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
-    @Operation(summary = "Update designation")
+    @PreAuthorize("hasAnyRole('ADMIN', 'HR')")
+    @Operation(summary = "Update designation (Admin/HR)")
     public ResponseEntity<DesignationDto> update(
             @PathVariable Long id,
             @Valid @RequestBody CreateDesignationRequest req
@@ -54,8 +54,8 @@ public class DesignationController {
     }
 
     @PatchMapping("/{id}/toggle")
-    @PreAuthorize("hasRole('ADMIN')")
-    @Operation(summary = "Toggle designation active status")
+    @PreAuthorize("hasAnyRole('ADMIN', 'HR')")
+    @Operation(summary = "Toggle designation active status (Admin/HR)")
     public ResponseEntity<DesignationDto> toggleActive(@PathVariable Long id) {
         return ResponseEntity.ok(designationService.toggleActive(id));
     }

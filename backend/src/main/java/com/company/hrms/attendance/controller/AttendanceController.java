@@ -62,23 +62,24 @@ public class AttendanceController {
 
     @GetMapping("/records")
     @PreAuthorize("hasAnyRole('ADMIN', 'HR', 'MANAGER')")
-    @Operation(summary = "Company attendance records with filters (Admin/HR/Manager)")
+    @Operation(summary = "Attendance records with filters (Admin/HR: all, Manager: team)")
     public ResponseEntity<PageResponse<AttendanceRecordDto>> searchRecords(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
             @RequestParam(required = false) Long departmentId,
             @RequestParam(required = false) String status,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size
+            @RequestParam(defaultValue = "20") int size,
+            @AuthenticationPrincipal UserDetailsImpl principal
     ) {
-        return ResponseEntity.ok(attendanceService.searchAttendance(startDate, endDate, departmentId, status, page, size));
+        return ResponseEntity.ok(attendanceService.searchAttendance(startDate, endDate, departmentId, status, page, size, principal));
     }
 
     @GetMapping("/stats")
     @PreAuthorize("hasAnyRole('ADMIN', 'HR', 'MANAGER')")
-    @Operation(summary = "Get today's organization attendance metrics")
-    public ResponseEntity<AttendanceStatsDto> getStats() {
-        return ResponseEntity.ok(attendanceService.getTodayStats());
+    @Operation(summary = "Get today's attendance metrics (Admin/HR: company, Manager: team)")
+    public ResponseEntity<AttendanceStatsDto> getStats(@AuthenticationPrincipal UserDetailsImpl principal) {
+        return ResponseEntity.ok(attendanceService.getTodayStats(principal));
     }
 
     @PostMapping("/regularize")
@@ -100,36 +101,37 @@ public class AttendanceController {
 
     @GetMapping("/regularizations")
     @PreAuthorize("hasAnyRole('ADMIN', 'HR', 'MANAGER')")
-    @Operation(summary = "List all regularization requests (Admin/HR/Manager)")
+    @Operation(summary = "List regularization requests (Admin/HR: all, Manager: team)")
     public ResponseEntity<PageResponse<AttendanceRegularizationDto>> getAllRegularizations(
             @RequestParam(required = false) String status,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size
+            @RequestParam(defaultValue = "20") int size,
+            @AuthenticationPrincipal UserDetailsImpl principal
     ) {
-        return ResponseEntity.ok(attendanceService.getAllRegularizations(status, page, size));
+        return ResponseEntity.ok(attendanceService.getAllRegularizations(status, page, size, principal));
     }
 
     @PatchMapping("/regularizations/{id}/approve")
     @PreAuthorize("hasAnyRole('ADMIN', 'HR', 'MANAGER')")
-    @Operation(summary = "Approve attendance regularization")
+    @Operation(summary = "Approve attendance regularization (Admin/HR: all, Manager: team only)")
     public ResponseEntity<AttendanceRegularizationDto> approveRegularization(
             @PathVariable Long id,
             @AuthenticationPrincipal UserDetailsImpl principal,
             @RequestBody(required = false) Map<String, String> body
     ) {
         String comment = body != null ? body.get("comment") : null;
-        return ResponseEntity.ok(attendanceService.approveRegularization(id, principal.getEmployeeId(), comment));
+        return ResponseEntity.ok(attendanceService.approveRegularization(id, principal.getEmployeeId(), comment, principal));
     }
 
     @PatchMapping("/regularizations/{id}/reject")
     @PreAuthorize("hasAnyRole('ADMIN', 'HR', 'MANAGER')")
-    @Operation(summary = "Reject attendance regularization")
+    @Operation(summary = "Reject attendance regularization (Admin/HR: all, Manager: team only)")
     public ResponseEntity<AttendanceRegularizationDto> rejectRegularization(
             @PathVariable Long id,
             @AuthenticationPrincipal UserDetailsImpl principal,
             @RequestBody(required = false) Map<String, String> body
     ) {
         String comment = body != null ? body.get("comment") : null;
-        return ResponseEntity.ok(attendanceService.rejectRegularization(id, principal.getEmployeeId(), comment));
+        return ResponseEntity.ok(attendanceService.rejectRegularization(id, principal.getEmployeeId(), comment, principal));
     }
 }

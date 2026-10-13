@@ -42,4 +42,30 @@ public interface LeaveRequestRepository extends JpaRepository<LeaveRequest, Long
     );
 
     long countByStatus(String status);
+
+    @Query("SELECT r FROM LeaveRequest r " +
+           "JOIN FETCH r.employee e " +
+           "JOIN FETCH r.leaveType " +
+           "LEFT JOIN FETCH e.department d " +
+           "WHERE e.manager.id = :managerId " +
+           "AND (cast(:status as String) IS NULL OR r.status = :status) " +
+           "AND (cast(:departmentId as Long) IS NULL OR d.id = :departmentId) " +
+           "ORDER BY r.createdAt DESC")
+    Page<LeaveRequest> searchLeaveRequestsByManager(
+            @Param("managerId") Long managerId,
+            @Param("status") String status,
+            @Param("departmentId") Long departmentId,
+            Pageable pageable
+    );
+
+    @Query("SELECT COUNT(r) FROM LeaveRequest r WHERE r.employee.manager.id = :managerId AND r.status = :status")
+    long countByManagerAndStatus(@Param("managerId") Long managerId, @Param("status") String status);
+
+    long countByEmployeeIdAndStatus(Long employeeId, String status);
+
+    @Query("SELECT COUNT(r) FROM LeaveRequest r WHERE r.employee.manager.id = :managerId AND r.status = 'APPROVED' AND r.startDate <= :date AND r.endDate >= :date")
+    long countTeamOnLeaveOnDate(@Param("managerId") Long managerId, @Param("date") LocalDate date);
+
+    @Query("SELECT COUNT(r) FROM LeaveRequest r WHERE r.status = 'APPROVED' AND r.startDate <= :date AND r.endDate >= :date")
+    long countCompanyOnLeaveOnDate(@Param("date") LocalDate date);
 }

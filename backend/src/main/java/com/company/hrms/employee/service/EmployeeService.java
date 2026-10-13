@@ -19,7 +19,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
+import com.company.hrms.auth.security.UserDetailsImpl;
+import org.springframework.security.access.AccessDeniedException;
 import java.time.Instant;
 import java.util.*;
 
@@ -36,6 +37,7 @@ public class EmployeeService {
             "id", "firstName", "lastName", "employeeCode", "dateOfJoining", "status", "createdAt"
     );
 
+    @Transactional(readOnly = true)
     public PageResponse<EmployeeSummaryDto> search(
             String search,
             Long departmentId,
@@ -43,7 +45,8 @@ public class EmployeeService {
             int page,
             int size,
             String sortBy,
-            String sortDirection
+            String sortDirection,
+            UserDetailsImpl principal
     ) {
         int safePage = Math.max(0, page);
         int safeSize = Math.min(Math.max(1, size), 100);
@@ -63,16 +66,37 @@ public class EmployeeService {
                 pageable
         );
 
+        boolean isHrOrAdmin = principal != null && principal.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN") || a.getAuthority().equals("ROLE_HR"));
+
         List<EmployeeSummaryDto> dtoList = resultPage.getContent().stream()
-                .map(this::toSummaryDto)
+                .map(e -> toSummaryDto(e, isHrOrAdmin))
                 .toList();
 
         return PageResponse.of(dtoList, resultPage);
     }
 
-    public EmployeeDto getById(Long id) {
+    @Transactional(readOnly = true)
+    public EmployeeDto getById(Long id, UserDetailsImpl principal) {
         Employee emp = employeeRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Employee", "id", id));
+
+        boolean isSelf = (principal != null && principal.getEmployeeId() != null && principal.getEmployeeId().equals(id));
+        boolean isHrOrAdmin = principal != null && principal.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN") || a.getAuthority().equals("ROLE_HR"));
+        boolean isManager = principal != null && principal.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_MANAGER"));
+
+        if (!isSelf && !isHrOrAdmin) {
+            if (isManager) {
+                if (emp.getManager() == null || !emp.getManager().getId().equals(principal.getEmployeeId())) {
+                    throw new AccessDeniedException("Managers can only view detailed profiles of their direct team members");
+                }
+                return toDto(emp);
+            }
+            throw new AccessDeniedException("Employees can only view their own detailed profile");
+        }
+
         return toDto(emp);
     }
 
@@ -214,21 +238,65 @@ public class EmployeeService {
         return toDto(employeeRepository.save(emp));
     }
 
-    public EmployeeStatsDto getStats() {
-        long total = employeeRepository.count();
-        long active = employeeRepository.countByStatus("ACTIVE");
-        long onNotice = employeeRepository.countByStatus("ON_NOTICE");
-        long inactive = employeeRepository.countByStatus("INACTIVE");
+    @Transactional(readOnly = true)
+    public EmployeeStatsDto getStats(UserDetailsImpl principal) {
+        boolean isHrOrAdmin = principal != null && principal.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN") || a.getAuthority().equals("ROLE_HR"));
+        boolean isManager = principal != null && principal.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_MANAGER"));
 
-        Map<String, Long> byDepartment = new LinkedHashMap<>();
-        List<Object[]> rows = employeeRepository.countActiveEmployeesByDepartment();
-        for (Object[] row : rows) {
-            if (row[0] != null && row[1] != null) {
-                byDepartment.put((String) row[0], ((Number) row[1]).longValue());
+        if (isHrOrAdmin) {
+            long total = employeeRepository.count();
+            long active = employeeRepository.countByStatus("ACTIVE");
+            long onNotice = employeeRepository.countByStatus("ON_NOTICE");
+            long inactive = employeeRepository.countByStatus("INACTIVE");
+
+            Map<String, Long> byDepartment = new LinkedHashMap<>();
+            List<Object[]> rows = employeeRepository.countActiveEmployeesByDepartment();
+            for (Object[] row : rows) {
+                if (row[0] != null && row[1] != null) {
+                    byDepartment.put((String) row[0], ((Number) row[1]).longValue());
+                }
             }
-        }
 
-        return new EmployeeStatsDto(total, active, onNotice, inactive, byDepartment);
+            return new EmployeeStatsDto(total, active, onNotice, inactive, byDepartment);
+        } else if (isManager) {
+            Long managerId = principal.getEmployeeId();
+            long total = employeeRepository.countByManagerId(managerId);
+            long active = employeeRepository.countByManagerIdAndStatus(managerId, "ACTIVE");
+            long onNotice = employeeRepository.countByManagerIdAndStatus(managerId, "ON_NOTICE");
+            long inactive = employeeRepository.countByManagerIdAndStatus(managerId, "INACTIVE");
+
+            Map<String, Long> byDepartment = new LinkedHashMap<>();
+            List<Object[]> rows = employeeRepository.countActiveTeamEmployeesByDepartment(managerId);
+            for (Object[] row : rows) {
+                if (row[0] != null && row[1] != null) {
+                    byDepartment.put((String) row[0], ((Number) row[1]).longValue());
+                }
+            }
+
+            return new EmployeeStatsDto(total, active, onNotice, inactive, byDepartment);
+        } else {
+            throw new AccessDeniedException("Employees do not have access to workforce statistics");
+        }
+    }
+
+    @Transactional
+    public EmployeeDto updateMyProfile(Long employeeId, UpdateMyProfileRequest req) {
+        Employee emp = employeeRepository.findById(employeeId)
+                .orElseThrow(() -> new ResourceNotFoundException("Employee", "id", employeeId));
+
+        if (req.personalEmail() != null) emp.setPersonalEmail(req.personalEmail());
+        if (req.phone() != null) emp.setPhone(req.phone());
+        if (req.addressLine() != null) emp.setAddressLine(req.addressLine());
+        if (req.city() != null) emp.setCity(req.city());
+        if (req.state() != null) emp.setState(req.state());
+        if (req.postalCode() != null) emp.setPostalCode(req.postalCode());
+        if (req.emergencyContactName() != null) emp.setEmergencyContactName(req.emergencyContactName());
+        if (req.emergencyContactPhone() != null) emp.setEmergencyContactPhone(req.emergencyContactPhone());
+        emp.setUpdatedAt(Instant.now());
+
+        return toDto(employeeRepository.save(emp));
     }
 
     private synchronized String generateNextEmployeeCode() {
@@ -236,7 +304,7 @@ public class EmployeeService {
         return String.format("EMP-%04d", count + 1);
     }
 
-    public EmployeeSummaryDto toSummaryDto(Employee e) {
+    public EmployeeSummaryDto toSummaryDto(Employee e, boolean fullFields) {
         return new EmployeeSummaryDto(
                 e.getId(),
                 e.getEmployeeCode(),
@@ -244,14 +312,14 @@ public class EmployeeService {
                 e.getLastName(),
                 e.getFullName(),
                 e.getWorkEmail(),
-                e.getPhone(),
+                fullFields ? e.getPhone() : null,
                 e.getDepartment() != null ? e.getDepartment().getId() : null,
                 e.getDepartment() != null ? e.getDepartment().getName() : null,
                 e.getDesignation() != null ? e.getDesignation().getId() : null,
                 e.getDesignation() != null ? e.getDesignation().getTitle() : null,
-                e.getEmploymentType(),
+                fullFields ? e.getEmploymentType() : null,
                 e.getStatus(),
-                e.getDateOfJoining()
+                fullFields ? e.getDateOfJoining() : null
         );
     }
 

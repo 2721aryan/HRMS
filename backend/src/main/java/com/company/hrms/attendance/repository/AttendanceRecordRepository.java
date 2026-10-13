@@ -50,4 +50,29 @@ public interface AttendanceRecordRepository extends JpaRepository<AttendanceReco
             @Param("status") String status,
             Pageable pageable
     );
+
+    @Query("SELECT r FROM AttendanceRecord r " +
+           "JOIN FETCH r.employee e " +
+           "LEFT JOIN FETCH e.department d " +
+           "WHERE e.manager.id = :managerId " +
+           "AND (cast(:startDate as LocalDate) IS NULL OR r.attendanceDate >= :startDate) " +
+           "AND (cast(:endDate as LocalDate) IS NULL OR r.attendanceDate <= :endDate) " +
+           "AND (cast(:departmentId as Long) IS NULL OR d.id = :departmentId) " +
+           "AND (cast(:status as String) IS NULL OR r.status = :status)")
+    Page<AttendanceRecord> searchAttendanceByManager(
+            @Param("managerId") Long managerId,
+            @Param("startDate") LocalDate startDate,
+            @Param("endDate") LocalDate endDate,
+            @Param("departmentId") Long departmentId,
+            @Param("status") String status,
+            Pageable pageable
+    );
+
+    @Query("SELECT COUNT(r) FROM AttendanceRecord r WHERE r.employee.manager.id = :managerId AND r.attendanceDate = :date AND r.status = :status")
+    long countByManagerAndAttendanceDateAndStatus(@Param("managerId") Long managerId, @Param("date") LocalDate date, @Param("status") String status);
+
+    @Query("SELECT COUNT(r) FROM AttendanceRecord r WHERE r.employee.manager.id = :managerId AND r.attendanceDate = :date AND r.late = true")
+    long countByManagerAndAttendanceDateAndLateTrue(@Param("managerId") Long managerId, @Param("date") LocalDate date);
+
+    long countByEmployeeIdAndAttendanceDateBetweenAndStatus(Long employeeId, LocalDate from, LocalDate to, String status);
 }

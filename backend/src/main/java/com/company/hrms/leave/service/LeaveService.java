@@ -18,6 +18,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.company.hrms.auth.security.UserDetailsImpl;
 
 import java.math.BigDecimal;
 import java.time.DayOfWeek;
@@ -55,12 +56,27 @@ public class LeaveService {
     }
 
     @Transactional
-    public List<LeaveBalanceDto> getEmployeeBalances(Long employeeId, Integer year) {
-        short targetYear = (short) ((year != null) ? year : LocalDate.now().getYear());
+    public List<LeaveBalanceDto> getEmployeeBalances(Long employeeId, Integer year, UserDetailsImpl principal) {
+        boolean isSelf = (principal != null && principal.getEmployeeId() != null && principal.getEmployeeId().equals(employeeId));
+        boolean isHrOrAdmin = principal != null && principal.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN") || a.getAuthority().equals("ROLE_HR"));
+        boolean isManager = principal != null && principal.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_MANAGER"));
 
         Employee emp = employeeRepository.findById(employeeId)
                 .orElseThrow(() -> new ResourceNotFoundException("Employee", "id", employeeId));
 
+        if (!isSelf && !isHrOrAdmin) {
+            if (isManager) {
+                if (emp.getManager() == null || !emp.getManager().getId().equals(principal.getEmployeeId())) {
+                    throw new AccessDeniedException("Managers can only view leave balances for their direct team members");
+                }
+            } else {
+                throw new AccessDeniedException("Employees can only view their own leave balances");
+            }
+        }
+
+        short targetYear = (short) ((year != null) ? year : LocalDate.now().getYear());
         List<LeaveBalance> balances = leaveBalanceRepository.findByEmployeeIdAndYear(employeeId, targetYear);
 
         // Auto-seed annual balances if missing
@@ -215,12 +231,21 @@ public class LeaveService {
     }
 
     @Transactional
-    public LeaveRequestDto approveLeave(Long leaveRequestId, Long approverId, String comment) {
+    public LeaveRequestDto approveLeave(Long leaveRequestId, Long approverId, String comment, UserDetailsImpl principal) {
         LeaveRequest req = leaveRequestRepository.findById(leaveRequestId)
                 .orElseThrow(() -> new ResourceNotFoundException("LeaveRequest", "id", leaveRequestId));
 
         if (!"PENDING".equals(req.getStatus())) {
             throw new BusinessException("Cannot approve leave request with status: " + req.getStatus());
+        }
+
+        boolean isHrOrAdmin = principal != null && principal.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN") || a.getAuthority().equals("ROLE_HR"));
+
+        if (!isHrOrAdmin) {
+            if (req.getEmployee().getManager() == null || !req.getEmployee().getManager().getId().equals(approverId)) {
+                throw new AccessDeniedException("Managers can only approve leave requests for their direct team members");
+            }
         }
 
         Employee approver = employeeRepository.findById(approverId)
@@ -275,12 +300,21 @@ public class LeaveService {
     }
 
     @Transactional
-    public LeaveRequestDto rejectLeave(Long leaveRequestId, Long approverId, String comment) {
+    public LeaveRequestDto rejectLeave(Long leaveRequestId, Long approverId, String comment, UserDetailsImpl principal) {
         LeaveRequest req = leaveRequestRepository.findById(leaveRequestId)
                 .orElseThrow(() -> new ResourceNotFoundException("LeaveRequest", "id", leaveRequestId));
 
         if (!"PENDING".equals(req.getStatus())) {
             throw new BusinessException("Cannot reject leave request with status: " + req.getStatus());
+        }
+
+        boolean isHrOrAdmin = principal != null && principal.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN") || a.getAuthority().equals("ROLE_HR"));
+
+        if (!isHrOrAdmin) {
+            if (req.getEmployee().getManager() == null || !req.getEmployee().getManager().getId().equals(approverId)) {
+                throw new AccessDeniedException("Managers can only reject leave requests for their direct team members");
+            }
         }
 
         Employee approver = employeeRepository.findById(approverId)
@@ -362,18 +396,103 @@ public class LeaveService {
     }
 
     @Transactional(readOnly = true)
-    public PageResponse<LeaveRequestDto> searchLeaveRequests(String status, Long departmentId, int page, int size) {
+    public PageResponse<LeaveRequestDto> searchLeaveRequests(String status, Long departmentId, int page, int size, UserDetailsImpl principal) {
+        boolean isHrOrAdmin = principal != null && principal.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN") || a.getAuthority().equals("ROLE_HR"));
+        boolean isManager = principal != null && principal.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_MANAGER"));
+
         int safePage = Math.max(0, page);
         int safeSize = Math.min(Math.max(1, size), 100);
         Pageable pageable = PageRequest.of(safePage, safeSize);
         String s = (status != null && !status.isBlank()) ? status.trim() : null;
-        Page<LeaveRequest> res = leaveRequestRepository.searchLeaveRequests(s, departmentId, pageable);
+
+        Page<LeaveRequest> res;
+        if (isHrOrAdmin) {
+            res = leaveRequestRepository.searchLeaveRequests(s, departmentId, pageable);
+        } else if (isManager) {
+            res = leaveRequestRepository.searchLeaveRequestsByManager(principal.getEmployeeId(), s, departmentId, pageable);
+        } else {
+            throw new AccessDeniedException("Employees can only view their own leave requests");
+        }
 
         List<LeaveRequestDto> dtos = res.getContent().stream()
                 .map(this::toRequestDto)
                 .toList();
 
         return PageResponse.of(dtos, res);
+    }
+
+    @Transactional
+    public LeaveTypeDto createLeaveType(CreateLeaveTypeRequest req) {
+        if (leaveTypeRepository.findByCode(req.code().toUpperCase()).isPresent()) {
+            throw new BusinessException("Leave type with code " + req.code() + " already exists");
+        }
+
+        String accrual = req.accrualType() != null ? req.accrualType().toUpperCase().trim() : "YEARLY";
+        if ("ANNUAL".equals(accrual)) {
+            accrual = "YEARLY";
+        }
+        if (!java.util.Set.of("YEARLY", "MONTHLY", "NONE").contains(accrual)) {
+            throw new BusinessException("Invalid accrual type. Must be YEARLY, MONTHLY, or NONE");
+        }
+
+        LeaveType type = LeaveType.builder()
+                .code(req.code().toUpperCase().trim())
+                .name(req.name().trim())
+                .paid(req.paid())
+                .annualQuota(req.annualQuota())
+                .accrualType(accrual)
+                .allowHalfDay(req.allowHalfDay())
+                .active(true)
+                .build();
+
+        LeaveType saved = leaveTypeRepository.save(type);
+        return new LeaveTypeDto(
+                saved.getId(),
+                saved.getCode(),
+                saved.getName(),
+                saved.isPaid(),
+                saved.getAnnualQuota(),
+                saved.getAccrualType(),
+                saved.isAllowHalfDay()
+        );
+    }
+
+    @Transactional
+    public LeaveBalanceDto creditLeaveBalance(CreditLeaveBalanceRequest req, Long adminId) {
+        Employee emp = employeeRepository.findById(req.employeeId())
+                .orElseThrow(() -> new ResourceNotFoundException("Employee", "id", req.employeeId()));
+
+        LeaveType type = leaveTypeRepository.findById(req.leaveTypeId())
+                .orElseThrow(() -> new ResourceNotFoundException("LeaveType", "id", req.leaveTypeId()));
+
+        short year = (req.year() != null) ? req.year() : (short) LocalDate.now().getYear();
+
+        LeaveBalance balance = leaveBalanceRepository.findByEmployeeIdAndLeaveTypeIdAndYear(emp.getId(), type.getId(), year)
+                .orElseGet(() -> leaveBalanceRepository.save(LeaveBalance.builder()
+                        .employee(emp)
+                        .leaveType(type)
+                        .year(year)
+                        .opening(BigDecimal.ZERO)
+                        .accrued(BigDecimal.ZERO)
+                        .adjusted(BigDecimal.ZERO)
+                        .used(BigDecimal.ZERO)
+                        .pending(BigDecimal.ZERO)
+                        .build()));
+
+        balance.setAdjusted(balance.getAdjusted().add(req.days()));
+        leaveBalanceRepository.save(balance);
+
+        transactionRepository.save(LeaveBalanceTransaction.builder()
+                .leaveBalance(balance)
+                .txnType(req.days().compareTo(BigDecimal.ZERO) >= 0 ? "CREDIT" : "DEBIT")
+                .days(req.days())
+                .remarks(req.remarks() != null ? req.remarks() : "Manual balance adjustment")
+                .createdBy(adminId)
+                .build());
+
+        return toBalanceDto(balance);
     }
 
     private LeaveBalanceDto toBalanceDto(LeaveBalance b) {

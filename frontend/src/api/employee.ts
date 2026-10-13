@@ -111,3 +111,22 @@ export async function fetchEmployeeStats(): Promise<EmployeeStats> {
   const { data } = await apiClient.get<EmployeeStats>('/employees/stats');
   return data;
 }
+
+export async function fetchMyProfile(): Promise<EmployeeDetail> {
+  const { data } = await apiClient.get<EmployeeDetail>('/employees/me');
+  return data;
+}
+
+export async function updateMyProfile(payload: {
+  personalEmail?: string;
+  phone?: string;
+  addressLine?: string;
+  city?: string;
+  state?: string;
+  postalCode?: string;
+  emergencyContactName?: string;
+  emergencyContactPhone?: string;
+}): Promise<EmployeeDetail> {
+  const { data } = await apiClient.patch<EmployeeDetail>('/employees/me', payload);
+  return data;
+}

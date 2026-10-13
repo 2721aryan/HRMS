@@ -14,6 +14,9 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
 
+import com.company.hrms.auth.security.UserDetailsImpl;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+
 @RestController
 @RequestMapping("/api/v1/employees")
 @RequiredArgsConstructor
@@ -31,23 +34,41 @@ public class EmployeeController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(defaultValue = "id") String sortBy,
-            @RequestParam(defaultValue = "ASC") String sortDirection
+            @RequestParam(defaultValue = "ASC") String sortDirection,
+            @AuthenticationPrincipal UserDetailsImpl principal
     ) {
-        return ResponseEntity.ok(employeeService.search(search, departmentId, status, page, size, sortBy, sortDirection));
+        return ResponseEntity.ok(employeeService.search(search, departmentId, status, page, size, sortBy, sortDirection, principal));
     }
 
-    @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'HR', 'MANAGER') or #id == authentication.principal.employeeId")
+    @GetMapping("/me")
+    @Operation(summary = "Get current authenticated employee profile")
+    public ResponseEntity<EmployeeDto> getMyProfile(@AuthenticationPrincipal UserDetailsImpl principal) {
+        return ResponseEntity.ok(employeeService.getById(principal.getEmployeeId(), principal));
+    }
+
+    @PatchMapping("/me")
+    @Operation(summary = "Update personal contact and address details for own profile")
+    public ResponseEntity<EmployeeDto> updateMyProfile(
+            @AuthenticationPrincipal UserDetailsImpl principal,
+            @Valid @RequestBody UpdateMyProfileRequest req
+    ) {
+        return ResponseEntity.ok(employeeService.updateMyProfile(principal.getEmployeeId(), req));
+    }
+
+    @GetMapping("/{id:[0-9]+}")
     @Operation(summary = "Get employee details by ID")
-    public ResponseEntity<EmployeeDto> getById(@PathVariable Long id) {
-        return ResponseEntity.ok(employeeService.getById(id));
+    public ResponseEntity<EmployeeDto> getById(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserDetailsImpl principal
+    ) {
+        return ResponseEntity.ok(employeeService.getById(id, principal));
     }
 
     @GetMapping("/stats")
     @PreAuthorize("hasAnyRole('ADMIN', 'HR', 'MANAGER')")
     @Operation(summary = "Get employee count metrics and department breakdown")
-    public ResponseEntity<EmployeeStatsDto> getStats() {
-        return ResponseEntity.ok(employeeService.getStats());
+    public ResponseEntity<EmployeeStatsDto> getStats(@AuthenticationPrincipal UserDetailsImpl principal) {
+        return ResponseEntity.ok(employeeService.getStats(principal));
     }
 
     @PostMapping
@@ -57,7 +78,7 @@ public class EmployeeController {
         return ResponseEntity.status(HttpStatus.CREATED).body(employeeService.create(req));
     }
 
-    @PutMapping("/{id}")
+    @PutMapping("/{id:[0-9]+}")
     @PreAuthorize("hasAnyRole('ADMIN', 'HR')")
     @Operation(summary = "Update employee details")
     public ResponseEntity<EmployeeDto> update(
@@ -67,7 +88,7 @@ public class EmployeeController {
         return ResponseEntity.ok(employeeService.update(id, req));
     }
 
-    @PatchMapping("/{id}/status")
+    @PatchMapping("/{id:[0-9]+}/status")
     @PreAuthorize("hasAnyRole('ADMIN', 'HR')")
     @Operation(summary = "Update employee employment status (ACTIVE, ON_NOTICE, INACTIVE)")
     public ResponseEntity<EmployeeDto> updateStatus(

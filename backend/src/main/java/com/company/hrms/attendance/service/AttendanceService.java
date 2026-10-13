@@ -16,6 +16,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.company.hrms.auth.security.UserDetailsImpl;
+import org.springframework.security.access.AccessDeniedException;
 
 import java.time.*;
 import java.time.temporal.ChronoUnit;
@@ -201,18 +203,27 @@ public class AttendanceService {
             Long departmentId,
             String status,
             int page,
-            int size
+            int size,
+            UserDetailsImpl principal
     ) {
+        boolean isHrOrAdmin = principal != null && principal.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN") || a.getAuthority().equals("ROLE_HR"));
+        boolean isManager = principal != null && principal.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_MANAGER"));
+
         int safePage = Math.max(0, page);
         int safeSize = Math.min(Math.max(1, size), 100);
         Pageable pageable = PageRequest.of(safePage, safeSize, Sort.by(Sort.Direction.DESC, "attendanceDate"));
-        Page<AttendanceRecord> pageResult = recordRepository.searchAttendance(
-                startDate,
-                endDate,
-                departmentId,
-                (status != null && !status.isBlank()) ? status.trim() : null,
-                pageable
-        );
+        String s = (status != null && !status.isBlank()) ? status.trim() : null;
+
+        Page<AttendanceRecord> pageResult;
+        if (isHrOrAdmin) {
+            pageResult = recordRepository.searchAttendance(startDate, endDate, departmentId, s, pageable);
+        } else if (isManager) {
+            pageResult = recordRepository.searchAttendanceByManager(principal.getEmployeeId(), startDate, endDate, departmentId, s, pageable);
+        } else {
+            throw new AccessDeniedException("Employees can only view their own attendance records");
+        }
 
         List<AttendanceRecordDto> dtoList = pageResult.getContent().stream()
                 .map(this::toRecordDto)
@@ -222,16 +233,35 @@ public class AttendanceService {
     }
 
     @Transactional(readOnly = true)
-    public AttendanceStatsDto getTodayStats() {
-        LocalDate today = LocalDate.now(ZONE);
-        long present = recordRepository.countByAttendanceDateAndStatus(today, "PRESENT");
-        long halfDay = recordRepository.countByAttendanceDateAndStatus(today, "HALF_DAY");
-        long onLeave = recordRepository.countByAttendanceDateAndStatus(today, "ON_LEAVE");
-        long late = recordRepository.countByAttendanceDateAndLateTrue(today);
-        long totalActive = employeeRepository.countByStatus("ACTIVE");
-        long absent = Math.max(0, totalActive - (present + halfDay + onLeave));
+    public AttendanceStatsDto getTodayStats(UserDetailsImpl principal) {
+        boolean isHrOrAdmin = principal != null && principal.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN") || a.getAuthority().equals("ROLE_HR"));
+        boolean isManager = principal != null && principal.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_MANAGER"));
 
-        return new AttendanceStatsDto(today, present, absent, onLeave, halfDay, late, totalActive);
+        LocalDate today = LocalDate.now(ZONE);
+        if (isHrOrAdmin) {
+            long present = recordRepository.countByAttendanceDateAndStatus(today, "PRESENT");
+            long halfDay = recordRepository.countByAttendanceDateAndStatus(today, "HALF_DAY");
+            long onLeave = recordRepository.countByAttendanceDateAndStatus(today, "ON_LEAVE");
+            long late = recordRepository.countByAttendanceDateAndLateTrue(today);
+            long totalActive = employeeRepository.countByStatus("ACTIVE");
+            long absent = Math.max(0, totalActive - (present + halfDay + onLeave));
+
+            return new AttendanceStatsDto(today, present, absent, onLeave, halfDay, late, totalActive);
+        } else if (isManager) {
+            Long managerId = principal.getEmployeeId();
+            long present = recordRepository.countByManagerAndAttendanceDateAndStatus(managerId, today, "PRESENT");
+            long halfDay = recordRepository.countByManagerAndAttendanceDateAndStatus(managerId, today, "HALF_DAY");
+            long onLeave = recordRepository.countByManagerAndAttendanceDateAndStatus(managerId, today, "ON_LEAVE");
+            long late = recordRepository.countByManagerAndAttendanceDateAndLateTrue(managerId, today);
+            long totalActive = employeeRepository.countByManagerIdAndStatus(managerId, "ACTIVE");
+            long absent = Math.max(0, totalActive - (present + halfDay + onLeave));
+
+            return new AttendanceStatsDto(today, present, absent, onLeave, halfDay, late, totalActive);
+        } else {
+            throw new AccessDeniedException("Employees do not have access to organization attendance statistics");
+        }
     }
 
     @Transactional
@@ -276,12 +306,25 @@ public class AttendanceService {
     }
 
     @Transactional(readOnly = true)
-    public PageResponse<AttendanceRegularizationDto> getAllRegularizations(String status, int page, int size) {
+    public PageResponse<AttendanceRegularizationDto> getAllRegularizations(String status, int page, int size, UserDetailsImpl principal) {
+        boolean isHrOrAdmin = principal != null && principal.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN") || a.getAuthority().equals("ROLE_HR"));
+        boolean isManager = principal != null && principal.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_MANAGER"));
+
         int safePage = Math.max(0, page);
         int safeSize = Math.min(Math.max(1, size), 100);
         Pageable pageable = PageRequest.of(safePage, safeSize);
         String s = (status != null && !status.isBlank()) ? status.trim() : null;
-        Page<AttendanceRegularization> res = regularizationRepository.findAllWithEmployee(s, pageable);
+
+        Page<AttendanceRegularization> res;
+        if (isHrOrAdmin) {
+            res = regularizationRepository.findAllWithEmployee(s, pageable);
+        } else if (isManager) {
+            res = regularizationRepository.findAllByManager(principal.getEmployeeId(), s, pageable);
+        } else {
+            throw new AccessDeniedException("Employees can only view their own regularization requests");
+        }
 
         List<AttendanceRegularizationDto> dtos = res.getContent().stream()
                 .map(this::toRegularizationDto)
@@ -291,9 +334,18 @@ public class AttendanceService {
     }
 
     @Transactional
-    public AttendanceRegularizationDto approveRegularization(Long id, Long approverId, String comment) {
+    public AttendanceRegularizationDto approveRegularization(Long id, Long approverId, String comment, UserDetailsImpl principal) {
         AttendanceRegularization reg = regularizationRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("AttendanceRegularization", "id", id));
+
+        boolean isHrOrAdmin = principal != null && principal.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN") || a.getAuthority().equals("ROLE_HR"));
+
+        if (!isHrOrAdmin) {
+            if (reg.getEmployee().getManager() == null || !reg.getEmployee().getManager().getId().equals(approverId)) {
+                throw new AccessDeniedException("Managers can only approve regularizations for their direct team members");
+            }
+        }
 
         Employee approver = employeeRepository.findById(approverId)
                 .orElseThrow(() -> new ResourceNotFoundException("Employee", "id", approverId));
@@ -338,9 +390,18 @@ public class AttendanceService {
     }
 
     @Transactional
-    public AttendanceRegularizationDto rejectRegularization(Long id, Long approverId, String comment) {
+    public AttendanceRegularizationDto rejectRegularization(Long id, Long approverId, String comment, UserDetailsImpl principal) {
         AttendanceRegularization reg = regularizationRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("AttendanceRegularization", "id", id));
+
+        boolean isHrOrAdmin = principal != null && principal.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN") || a.getAuthority().equals("ROLE_HR"));
+
+        if (!isHrOrAdmin) {
+            if (reg.getEmployee().getManager() == null || !reg.getEmployee().getManager().getId().equals(approverId)) {
+                throw new AccessDeniedException("Managers can only reject regularizations for their direct team members");
+            }
+        }
 
         Employee approver = employeeRepository.findById(approverId)
                 .orElseThrow(() -> new ResourceNotFoundException("Employee", "id", approverId));

@@ -42,6 +42,17 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long>, JpaSp
     @Query("SELECT e.department.name, COUNT(e) FROM Employee e WHERE e.status = 'ACTIVE' AND e.department IS NOT NULL GROUP BY e.department.name")
     List<Object[]> countActiveEmployeesByDepartment();
 
+    long countByManagerId(Long managerId);
+
+    long countByManagerIdAndStatus(Long managerId, String status);
+
+    List<Employee> findByManagerId(Long managerId);
+
+    boolean existsByIdAndManagerId(Long id, Long managerId);
+
+    @Query("SELECT e.department.name, COUNT(e) FROM Employee e WHERE e.manager.id = :managerId AND e.status = 'ACTIVE' AND e.department IS NOT NULL GROUP BY e.department.name")
+    List<Object[]> countActiveTeamEmployeesByDepartment(@Param("managerId") Long managerId);
+
     @Query("SELECT e FROM Employee e LEFT JOIN FETCH e.department LEFT JOIN FETCH e.designation LEFT JOIN FETCH e.location ORDER BY e.id ASC")
     List<Employee> findAllWithRelations();
 }
