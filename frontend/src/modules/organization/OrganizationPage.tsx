@@ -32,10 +32,13 @@ import {
   type Designation,
   type Location,
 } from '../../api/org';
+import { useAuth } from '../../auth/AuthContext';
 
 const { Title, Text } = Typography;
 
 export default function OrganizationPage() {
+  const { user } = useAuth();
+  const canManageOrg = user?.roles?.some((r: string) => r === 'ADMIN' || r === 'HR');
   const [activeTab, setActiveTab] = useState('departments');
   const [departments, setDepartments] = useState<Department[]>([]);
   const [designations, setDesignations] = useState<Designation[]>([]);
@@ -143,7 +146,7 @@ export default function OrganizationPage() {
       key: 'active',
       render: (active: boolean) => active ? <Tag color="success">Active</Tag> : <Tag color="default">Disabled</Tag>,
     },
-    {
+    ...(canManageOrg ? [{
       title: 'Toggle',
       key: 'toggle',
       align: 'right' as const,
@@ -154,7 +157,7 @@ export default function OrganizationPage() {
           size="small"
         />
       ),
-    },
+    }] : []),
   ];
 
   const desigColumns = [
@@ -176,7 +179,7 @@ export default function OrganizationPage() {
       key: 'active',
       render: (active: boolean) => active ? <Tag color="success">Active</Tag> : <Tag color="default">Disabled</Tag>,
     },
-    {
+    ...(canManageOrg ? [{
       title: 'Toggle',
       key: 'toggle',
       align: 'right' as const,
@@ -187,7 +190,7 @@ export default function OrganizationPage() {
           size="small"
         />
       ),
-    },
+    }] : []),
   ];
 
   const locColumns = [
@@ -233,16 +236,18 @@ export default function OrganizationPage() {
       ),
       children: (
         <Card variant="borderless" style={{ background: 'rgba(15, 23, 42, 0.6)', border: '1px solid rgba(255,255,255,0.08)' }}>
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
-            <Button
-              type="primary"
-              icon={<PlusOutlined />}
-              onClick={() => setIsDeptModalOpen(true)}
-              style={{ background: '#2563eb' }}
-            >
-              Add Department
-            </Button>
-          </div>
+          {canManageOrg && (
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
+              <Button
+                type="primary"
+                icon={<PlusOutlined />}
+                onClick={() => setIsDeptModalOpen(true)}
+                style={{ background: '#2563eb' }}
+              >
+                Add Department
+              </Button>
+            </div>
+          )}
           <Table
             columns={deptColumns}
             dataSource={departments}
@@ -263,16 +268,18 @@ export default function OrganizationPage() {
       ),
       children: (
         <Card variant="borderless" style={{ background: 'rgba(15, 23, 42, 0.6)', border: '1px solid rgba(255,255,255,0.08)' }}>
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
-            <Button
-              type="primary"
-              icon={<PlusOutlined />}
-              onClick={() => setIsDesigModalOpen(true)}
-              style={{ background: '#2563eb' }}
-            >
-              Add Designation
-            </Button>
-          </div>
+          {canManageOrg && (
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
+              <Button
+                type="primary"
+                icon={<PlusOutlined />}
+                onClick={() => setIsDesigModalOpen(true)}
+                style={{ background: '#2563eb' }}
+              >
+                Add Designation
+              </Button>
+            </div>
+          )}
           <Table
             columns={desigColumns}
             dataSource={designations}

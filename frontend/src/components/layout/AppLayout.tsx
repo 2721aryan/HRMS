@@ -56,6 +56,10 @@ export default function AppLayout() {
     },
   ];
 
+  const userRoles = user?.roles || [];
+  const isAdmin = userRoles.includes('ADMIN');
+  const isHR = userRoles.includes('HR');
+
   const menuItems = [
     {
       key: '/dashboard',
@@ -67,11 +71,11 @@ export default function AppLayout() {
       icon: <TeamOutlined />,
       label: 'Employees',
     },
-    {
+    ...((isAdmin || isHR) ? [{
       key: '/organization',
       icon: <ApartmentOutlined />,
       label: 'Organization',
-    },
+    }] : []),
     {
       key: '/attendance',
       icon: <ClockCircleOutlined />,
@@ -82,10 +86,21 @@ export default function AppLayout() {
       icon: <CalendarOutlined />,
       label: 'Leaves',
     },
+    ...(isAdmin ? [{
+      key: '/access-control',
+      icon: <SafetyCertificateOutlined />,
+      label: 'Access Control',
+    }] : []),
   ];
 
   // Resolve current active menu item
-  const selectedKeys = [location.pathname.startsWith('/employees') ? '/employees' : location.pathname];
+  const selectedKeys = [
+    location.pathname.startsWith('/employees')
+      ? '/employees'
+      : location.pathname.startsWith('/access-control')
+      ? '/access-control'
+      : location.pathname,
+  ];
 
   return (
     <Layout className="app-layout">

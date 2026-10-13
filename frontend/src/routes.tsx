@@ -10,6 +10,7 @@ const EmployeeListPage = lazy(() => import('./modules/employees/EmployeeListPage
 const OrganizationPage = lazy(() => import('./modules/organization/OrganizationPage'));
 const AttendancePage = lazy(() => import('./modules/attendance/AttendancePage'));
 const LeavePage = lazy(() => import('./modules/leave/LeavePage'));
+const AccessControlPage = lazy(() => import('./modules/access-control/AccessControlPage'));
 
 const Loading = () => (
   <div style={{ display: 'flex', height: '60vh', alignItems: 'center', justifyContent: 'center' }}>
@@ -65,6 +66,14 @@ export const router = createBrowserRouter([
         element: (
           <Suspense fallback={<Loading />}>
             <LeavePage />
+          </Suspense>
+        ),
+      },
+      {
+        path: 'access-control',
+        element: (
+          <Suspense fallback={<Loading />}>
+            <AccessControlPage />
           </Suspense>
         ),
       },

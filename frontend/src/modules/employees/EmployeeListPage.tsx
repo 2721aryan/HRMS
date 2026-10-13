@@ -55,11 +55,15 @@ import {
   type Designation,
   type Location,
 } from '../../api/org';
+import { useAuth } from '../../auth/AuthContext';
 import './EmployeeListPage.css';
 
 const { Title, Text } = Typography;
 
 export default function EmployeeListPage() {
+  const { user } = useAuth();
+  const canManageEmployees = user?.roles?.some((r: string) => r === 'ADMIN' || r === 'HR');
+  const canViewStats = user?.roles?.some((r: string) => r === 'ADMIN' || r === 'HR' || r === 'MANAGER');
   const [employees, setEmployees] = useState<EmployeeSummary[]>([]);
   const [stats, setStats] = useState<EmployeeStats | null>(null);
   const [loading, setLoading] = useState(false);
@@ -115,13 +119,14 @@ export default function EmployeeListPage() {
 
   // Fetch stats
   const loadStats = useCallback(async () => {
+    if (!canViewStats) return;
     try {
       const s = await fetchEmployeeStats();
       setStats(s);
     } catch {
       // stats failure is not blocking
     }
-  }, []);
+  }, [canViewStats]);
 
   useEffect(() => {
     loadEmployees();
@@ -366,19 +371,22 @@ export default function EmployeeListPage() {
           >
             Export Excel
           </Button>
-          <Button
-            type="primary"
-            icon={<UserAddOutlined />}
-            onClick={() => setIsAddModalOpen(true)}
-            style={{ background: 'linear-gradient(135deg, #2563eb, #7c3aed)', border: 0 }}
-          >
-            Add Employee
-          </Button>
+          {canManageEmployees && (
+            <Button
+              type="primary"
+              icon={<UserAddOutlined />}
+              onClick={() => setIsAddModalOpen(true)}
+              style={{ background: 'linear-gradient(135deg, #2563eb, #7c3aed)', border: 0 }}
+            >
+              Add Employee
+            </Button>
+          )}
         </Space>
       </div>
 
       {/* Metric Cards */}
-      <div className="stat-grid">
+      {canViewStats && (
+        <div className="stat-grid">
         <Card className="stat-card" variant="borderless">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
@@ -427,6 +435,7 @@ export default function EmployeeListPage() {
           </div>
         </Card>
       </div>
+      )}
 
       {/* Filter and Search Bar */}
       <div className="filter-bar">
