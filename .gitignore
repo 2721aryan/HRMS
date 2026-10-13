@@ -4,6 +4,7 @@ backend/uploads/
 backend/uploads-dev/
 *.class
 *.jar
+!backend/.mvn/wrapper/maven-wrapper.jar
 
 # Frontend
 frontend/node_modules/
