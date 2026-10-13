@@ -1,0 +1,101 @@
+.employee-page {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.page-title {
+  margin: 0 !important;
+  color: #f8fafc !important;
+  font-weight: 700 !important;
+}
+
+.page-subtitle {
+  color: #94a3b8;
+  font-size: 14px;
+  margin-top: 4px;
+}
+
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.stat-card {
+  background: rgba(30, 41, 59, 0.5) !important;
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 12px !important;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+.filter-bar {
+  background: rgba(30, 41, 59, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.table-card {
+  background: rgba(15, 23, 42, 0.6) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 12px !important;
+  overflow: hidden;
+}
+
+.ant-table {
+  background: transparent !important;
+  color: #e2e8f0 !important;
+}
+
+.ant-table-thead > tr > th {
+  background: rgba(30, 41, 59, 0.6) !important;
+  color: #94a3b8 !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+  font-weight: 600 !important;
+}
+
+.ant-table-tbody > tr > td {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04) !important;
+  color: #e2e8f0 !important;
+}
+
+.ant-table-tbody > tr:hover > td {
+  background: rgba(59, 130, 246, 0.06) !important;
+}
+
+.employee-avatar-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.emp-name {
+  font-weight: 600;
+  color: #f8fafc;
+}
+
+.emp-code {
+  font-size: 12px;
+  color: #64748b;
+  font-family: monospace;
+}

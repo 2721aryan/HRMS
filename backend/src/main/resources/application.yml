@@ -1,0 +1,71 @@
+spring:
+  application:
+    name: hrms
+
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/hrms}
+    username: ${DB_USER}       # Required — set via env var or .env file
+    password: ${DB_PASS}       # Required — set via env var or .env file
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+    open-in-view: false
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: false
+
+  mail:
+    host: ${MAIL_HOST:smtp.gmail.com}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USER:}
+    password: ${MAIL_PASS:}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 20MB
+
+app:
+  jwt:
+    secret: ${JWT_SECRET}      # Required — generate: openssl rand -base64 64
+    access-token-expiry-ms: 900000        # 15 minutes
+    refresh-token-expiry-ms: 43200000     # 12 hours
+  cors:
+    allowed-origins: ${APP_CORS_ORIGINS:http://localhost:5173}  # comma-separated for multiple
+  cookie:
+    secure: ${APP_COOKIE_SECURE:false}    # set to true in production (HTTPS)
+  file-storage:
+    type: ${FILE_STORAGE_TYPE:local}      # local | s3
+    local-path: ${FILE_STORAGE_LOCAL_PATH:./uploads}
+    s3-bucket: ${S3_BUCKET:}
+    s3-region: ${S3_REGION:ap-south-1}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: when-authorized
+
+server:
+  port: 8085
+  error:
+    include-message: never
+    include-stacktrace: never

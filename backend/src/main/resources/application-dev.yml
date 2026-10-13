@@ -1,0 +1,16 @@
+﻿spring:
+  jpa:
+    show-sql: true
+  flyway:
+    enabled: true
+
+app:
+  file-storage:
+    type: local
+    local-path: ./uploads-dev
+
+logging:
+  level:
+    com.company.hrms: DEBUG
+    org.springframework.security: DEBUG
+    org.flywaydb: INFO

@@ -1,0 +1,21 @@
+# Backend
+backend/target/
+backend/uploads/
+backend/uploads-dev/
+*.class
+*.jar
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.env
+
+# Docker
+postgres_data/
+pgadmin_data/
+.env
+
+# IDE
+.idea/
+.vscode/
+*.iml

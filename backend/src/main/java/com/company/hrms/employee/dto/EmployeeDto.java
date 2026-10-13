@@ -1,0 +1,39 @@
+package com.company.hrms.employee.dto;
+
+import java.time.Instant;
+import java.time.LocalDate;
+
+public record EmployeeDto(
+        Long id,
+        String employeeCode,
+        String firstName,
+        String lastName,
+        String fullName,
+        String workEmail,
+        String personalEmail,
+        String phone,
+        LocalDate dateOfBirth,
+        String gender,
+        String maritalStatus,
+        String addressLine,
+        String city,
+        String state,
+        String postalCode,
+        String emergencyContactName,
+        String emergencyContactPhone,
+        Long departmentId,
+        String departmentName,
+        Long designationId,
+        String designationTitle,
+        Long locationId,
+        String locationName,
+        Long managerId,
+        String managerName,
+        String employmentType,
+        String status,
+        LocalDate dateOfJoining,
+        LocalDate probationEndDate,
+        LocalDate dateOfExit,
+        Instant createdAt,
+        Instant updatedAt
+) {}
