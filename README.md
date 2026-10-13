@@ -48,9 +48,12 @@ docker compose up --build
 | 📖 Swagger UI | http://localhost:8085/swagger-ui |
 
 **Default login credentials:**
-| Role | Username | Password |
-|---|---|---|
-| Admin | `admin` | `Admin@123` |
+| Role | Username | Password | Notes |
+|---|---|---|---|
+| 👑 Admin | `admin` | `Admin@123` | Full system access & role provisioning |
+| 💼 HR | `hr` | `Hr@123` | Manage employees, org structure & leaves |
+| 👔 Manager | `manager` | `Manager@123` | Team approvals (leave & regularizations) |
+| 👤 Employee | `employee` | `Employee@123` | Self-service punch in/out & leave requests |
 
 ---
 

@@ -1,10 +1,16 @@
-﻿spring:
+spring:
+  datasource:
+    username: ${DB_USER:postgres}
+    password: ${DB_PASS:postgres}
   jpa:
     show-sql: true
   flyway:
     enabled: true
 
 app:
+  jwt:
+    # Dev-only fallback secret — NEVER used in production (prod profile requires JWT_SECRET env var)
+    secret: ${JWT_SECRET:dGhpc2lzYXZlcnlsb25ncmFuZG9tc2VjcmV0Zm9yaHJtc2FwcGxpY2F0aW9uMTIzNDU2Nzg5MDEyMw==}
   file-storage:
     type: local
     local-path: ./uploads-dev

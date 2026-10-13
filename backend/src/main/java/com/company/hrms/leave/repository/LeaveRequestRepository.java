@@ -22,8 +22,8 @@ public interface LeaveRequestRepository extends JpaRepository<LeaveRequest, Long
            "JOIN FETCH r.employee e " +
            "JOIN FETCH r.leaveType " +
            "LEFT JOIN FETCH e.department d " +
-           "WHERE (:status IS NULL OR r.status = :status) " +
-           "AND (:departmentId IS NULL OR d.id = :departmentId) " +
+           "WHERE (cast(:status as String) IS NULL OR r.status = :status) " +
+           "AND (cast(:departmentId as Long) IS NULL OR d.id = :departmentId) " +
            "ORDER BY r.createdAt DESC")
     Page<LeaveRequest> searchLeaveRequests(
             @Param("status") String status,

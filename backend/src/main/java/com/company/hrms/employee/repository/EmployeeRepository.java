@@ -25,9 +25,9 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long>, JpaSp
            "LEFT JOIN FETCH e.department " +
            "LEFT JOIN FETCH e.designation " +
            "LEFT JOIN FETCH e.location " +
-           "WHERE (:status IS NULL OR e.status = :status) " +
-           "AND (:departmentId IS NULL OR e.department.id = :departmentId) " +
-           "AND (:search IS NULL OR " +
+           "WHERE (cast(:status as String) IS NULL OR e.status = :status) " +
+           "AND (cast(:departmentId as Long) IS NULL OR e.department.id = :departmentId) " +
+           "AND (cast(:search as String) IS NULL OR " +
            "     LOWER(e.firstName) LIKE :search OR " +
            "     LOWER(e.lastName) LIKE :search OR " +
            "     LOWER(e.employeeCode) LIKE :search OR " +

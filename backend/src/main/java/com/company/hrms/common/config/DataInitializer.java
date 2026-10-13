@@ -218,5 +218,61 @@ public class DataInitializer implements ApplicationRunner {
 
             log.info("Sample employees seeded successfully.");
         }
+
+        // 6. Ensure Demo Users for other roles exist (Manager, HR, Employee)
+        Role hrRole = roleRepository.findByCode("HR")
+                .orElseGet(() -> roleRepository.save(Role.builder().code("HR").name("HR Manager").description("HR functions").build()));
+        Role managerRole = roleRepository.findByCode("MANAGER")
+                .orElseGet(() -> roleRepository.save(Role.builder().code("MANAGER").name("Manager").description("Manager approval").build()));
+        Role empRole = roleRepository.findByCode("EMPLOYEE")
+                .orElseGet(() -> roleRepository.save(Role.builder().code("EMPLOYEE").name("Employee").description("Self service").build()));
+
+        // Demo HR user
+        if (userRepository.findByUsername("hr").isEmpty()) {
+            employeeRepository.findByWorkEmail("ananya.iyer@company.com").ifPresent(hrEmp -> {
+                userRepository.save(User.builder()
+                        .employeeId(hrEmp.getId())
+                        .username("hr")
+                        .passwordHash(passwordEncoder.encode("Hr@123"))
+                        .roles(Set.of(hrRole, empRole))
+                        .active(true)
+                        .mustChangePassword(false)
+                        .tokenVersion(0)
+                        .build());
+                log.info("Demo HR user created: username='hr', password='Hr@123'");
+            });
+        }
+
+        // Demo Manager user
+        if (userRepository.findByUsername("manager").isEmpty()) {
+            employeeRepository.findByWorkEmail("aarav.sharma@company.com").ifPresent(mgrEmp -> {
+                userRepository.save(User.builder()
+                        .employeeId(mgrEmp.getId())
+                        .username("manager")
+                        .passwordHash(passwordEncoder.encode("Manager@123"))
+                        .roles(Set.of(managerRole, empRole))
+                        .active(true)
+                        .mustChangePassword(false)
+                        .tokenVersion(0)
+                        .build());
+                log.info("Demo Manager user created: username='manager', password='Manager@123'");
+            });
+        }
+
+        // Demo Employee user
+        if (userRepository.findByUsername("employee").isEmpty()) {
+            employeeRepository.findByWorkEmail("rohan.verma@company.com").ifPresent(emp -> {
+                userRepository.save(User.builder()
+                        .employeeId(emp.getId())
+                        .username("employee")
+                        .passwordHash(passwordEncoder.encode("Employee@123"))
+                        .roles(Set.of(empRole))
+                        .active(true)
+                        .mustChangePassword(false)
+                        .tokenVersion(0)
+                        .build());
+                log.info("Demo Employee user created: username='employee', password='Employee@123'");
+            });
+        }
     }
 }

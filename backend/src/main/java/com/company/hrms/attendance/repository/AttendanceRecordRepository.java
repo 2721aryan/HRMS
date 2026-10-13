@@ -39,10 +39,10 @@ public interface AttendanceRecordRepository extends JpaRepository<AttendanceReco
     @Query("SELECT r FROM AttendanceRecord r " +
            "JOIN FETCH r.employee e " +
            "LEFT JOIN FETCH e.department d " +
-           "WHERE (:startDate IS NULL OR r.attendanceDate >= :startDate) " +
-           "AND (:endDate IS NULL OR r.attendanceDate <= :endDate) " +
-           "AND (:departmentId IS NULL OR d.id = :departmentId) " +
-           "AND (:status IS NULL OR r.status = :status)")
+           "WHERE (cast(:startDate as LocalDate) IS NULL OR r.attendanceDate >= :startDate) " +
+           "AND (cast(:endDate as LocalDate) IS NULL OR r.attendanceDate <= :endDate) " +
+           "AND (cast(:departmentId as Long) IS NULL OR d.id = :departmentId) " +
+           "AND (cast(:status as String) IS NULL OR r.status = :status)")
     Page<AttendanceRecord> searchAttendance(
             @Param("startDate") LocalDate startDate,
             @Param("endDate") LocalDate endDate,

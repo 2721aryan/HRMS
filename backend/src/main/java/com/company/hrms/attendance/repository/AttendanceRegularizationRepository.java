@@ -15,7 +15,7 @@ public interface AttendanceRegularizationRepository extends JpaRepository<Attend
 
     @Query("SELECT r FROM AttendanceRegularization r " +
            "JOIN FETCH r.employee e " +
-           "WHERE (:status IS NULL OR r.status = :status) " +
+           "WHERE (cast(:status as String) IS NULL OR r.status = :status) " +
            "ORDER BY r.createdAt DESC")
     Page<AttendanceRegularization> findAllWithEmployee(@Param("status") String status, Pageable pageable);
 

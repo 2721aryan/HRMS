@@ -1,6 +1,8 @@
 spring:
   application:
     name: hrms
+  profiles:
+    default: dev
 
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/hrms}
