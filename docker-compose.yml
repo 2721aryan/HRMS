@@ -1,4 +1,4 @@
-version: '3.9'
+# docker compose (Compose Spec — 'version' key removed as it is deprecated)
 
 # ─────────────────────────────────────────────────────────────────────────────
 #  HRMS — Full Stack Docker Compose
@@ -57,6 +57,13 @@ services:
       MAIL_PASS: ${MAIL_PASS:-}
       # Spring profile
       SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-prod}
+      # CORS — must match the actual origin the browser uses (frontend container = port 80)
+      APP_CORS_ORIGINS: ${APP_CORS_ORIGINS:-http://localhost}
+      # Cookies — set to true when serving over HTTPS
+      APP_COOKIE_SECURE: ${APP_COOKIE_SECURE:-false}
+      # File storage
+      FILE_STORAGE_TYPE: ${FILE_STORAGE_TYPE:-local}
+      FILE_STORAGE_LOCAL_PATH: /app/uploads   # must match the volume mount below
     # Not exposing 8085 to host — frontend Nginx proxies to it internally
     # Uncomment below if you want to hit the API directly
     # ports:
@@ -85,7 +92,7 @@ services:
 
   # ── pgAdmin (optional, for DB inspection) ───────────────────────────────────
   pgadmin:
-    image: dpage/pgadmin4:latest
+    image: dpage/pgadmin4:8
     container_name: hrms_pgadmin
     restart: unless-stopped
     profiles:
